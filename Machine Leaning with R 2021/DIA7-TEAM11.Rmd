@@ -1,0 +1,307 @@
+---
+title: "TEAM11 DIA7"
+subtitle: "Shipping data"
+author: "Nicolas Vanderstigel Constantin Testu Arnaud Schwartz"
+date: "08/12/2021"
+output:
+  rmdformats::readthedown:
+    highlight: kate   
+editor_options: 
+  chunk_output_type: console
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages('class')
+#install.packages('caTools')
+#install.packages('ggplot2')
+#install.packages('psych')
+#install.packages('quantable')
+#install.packages('randomForest')
+#install.packages('caret')
+#install.packages('corrplot')
+#install.packages('e1071')
+library(class)
+library(caTools)
+library(ggplot2)
+library(psych)
+library(quantable)
+library(randomForest)
+library(caret)
+library(corrplot)
+library(e1071)
+set.seed(11)
+```
+# Introduction
+
+In the context of our Machine Learning courses we are going to study the "shipping data" dataset. The objective is to predict whether or not a shipment will arrive on time. 
+
+This exercise took place on the platform Kaggle, which allows all the participants to submit their prediction and to know their accuracy. The exciting part was the aspect of competition between students, because each time we submitted our predictions, we could see the leader board ruled by the accuracy.
+
+This is how we proceeded: 
+
+# Preprocessing
+
+## Load the datasets 
+```{r}
+train <- read.csv("train (1).csv", sep=",")
+test <- read.csv("test (1).csv", sep=",")
+```
+
+### Train set:
+
+```{r echo=FALSE}
+knitr::kable(train[1:3,])
+```
+
+### Test set:
+
+```{r echo=FALSE}
+knitr::kable(test[1:3,])
+```
+
+There are `r ncol(train)` features in global. ("r ncol(train)")
+
+## Summary of the data set
+
+```{r echo=FALSE}
+summary(train)
+```
+
+## NaN Check
+```{r}
+sapply(train,function(x)all(any(is.na(x))))
+```
+
+There are no NaN Values in our data set ! ^^
+
+## Encoding qualitative features
+
+To begin we have some hierarchical data that we encode according to their importance :
+
+```{r}
+train$Product_importance <- gsub('low', '0', train$Product_importance)
+train$Product_importance <- gsub('medium', '1', train$Product_importance)
+train$Product_importance <- gsub('high', '2', train$Product_importance)
+train$Product_importance <- as.numeric(as.character(train$Product_importance))
+
+test$Product_importance <- gsub('low', '0', test$Product_importance)
+test$Product_importance <- gsub('medium', '1', test$Product_importance)
+test$Product_importance <- gsub('high', '2', test$Product_importance)
+test$Product_importance <- as.numeric(as.character(test$Product_importance))
+```
+
+Some of the qualitative features can take several string values. In order to allow any machine learning model to interpret the data we will apply a One Hot encoding: 
+
+```{r}
+dmy = dummyVars(" ~ .", data = train)
+train <- data.frame(predict(dmy, newdata = train))
+
+dmy = dummyVars(" ~ .", data = test)
+test = data.frame(predict(dmy, newdata = test))
+```
+
+
+## Data Visualization 
+
+### Correlation Matrix:
+```{r echo=FALSE}
+mcor = cor(train)
+library(corrplot)
+corrplot(mcor, type="upper", tl.col="black", tl.srt=45)
+```
+
+We notice that their is a negative correlation between the "weight_in_grams" and our target feature "reached_on_time". Also it has a great correlation with "discount_offered", and a small negative correlation with "customer_care_calls", "Cost_of_the_product_" and with "Prior_purchases". 
+
+### Multi histogram:
+```{r echo=FALSE}
+multi.hist(train, global = FALSE)
+```
+
+We observe a Gaussian reparation on several features but on some there were outlier. 
+
+## Data splitting
+
+In order to have our own test set we will do a split (80%/20%) of the training set with the correct values to measure the accuracy of our algorithms. 
+
+```{r}
+split = sample.split(train$Reached_on_Time, SplitRatio = 0.8 )
+training_set = subset(train, split == TRUE)
+test_set = subset(train, split == FALSE)
+```
+
+
+## Scaling
+
+We apply a normalization to the dataset. We made sure to use the parameters of the training set for both the training set and the test sets.
+```{r}
+train_scaled_preTRAIN = preProcess(training_set, method="range")
+train_scaled_preTEST = preProcess(training_set[,-18], method="range")
+train_scaled = predict(train_scaled_preTRAIN, training_set)
+test_scaled2 = predict(train_scaled_preTRAIN, test_set)
+test_scaled = predict(train_scaled_preTEST, test)
+```
+
+"Test_Scaled2" represents our own test set while "test_scaled" represents the given test set.
+
+
+# Data Processing
+
+## Accuracy fonction
+
+```{r}
+accuracy = function (pred, actual){
+  sum(pred == actual)/length(pred)
+}
+```
+
+
+
+## RANDOM FOREST
+
+
+1) First shot
+2) Encoded qualitative features
+3) Encoded qualitative features + scaled data
+
+(Our code is not knitting on R markdown but there is no problem on normal R file)
+
+```{r}
+
+#rf1 = randomForest(Reached_on_Time~., data = train, ntrees = 500)
+#rf2 = randomForest(Reached_on_Time~., data = training_set, ntrees = 500)
+#rf3 = randomForest(Reached_on_Time~., data = train_scaled, ntrees = 500)
+
+#rf1_pred = predict(rf1, newdata = test_set)
+#rf2_pred = predict(rf2, newdata = test_set)
+#rf3_pred = predict(rf3, newdata = test_scaled)
+
+#rf1
+#rf2
+#rf3
+
+#plot(rf1, col = "#cd0050", lwd = 2, main = "Bagged Trees: Error vs Number of Trees")
+#grid()
+
+#rf1_acc = accuracy(rf1_pred,test_set[,18])
+
+```
+
+
+![error](https://vectaloss.github.io/images/error.png)
+Above this is the error we got on R markdown... We supposed that the format is not compatible.
+
+
+There is the screen of the graph we obtained with the random forest executed on R studio :
+![graph](https://vectaloss.github.io/images/graph.png)
+
+
+We can see that the R squared value actually decreased when we used scaled data which is not good, it is hard to tell why. 
+
+The plot shows us that after 400 trees the score is not improving. 
+
+## LOG REGRESSION
+
+Then we tried a logistic regression:
+
+### With scaled value:
+```{r}
+classifier = glm(Reached_on_Time ~. , family = binomial, data=train_scaled)
+prob_pred1 = predict(classifier, newdata = test_scaled2[-18], type="response")
+prob_pred1 = round(prob_pred1,0)
+accuracy1 = accuracy(prob_pred1,test_scaled2[,18])
+```
+
+
+We obtained an accuracy of:
+```{r echo = FALSE}
+print(accuracy1)
+```
+
+### Without scaled value:
+```{r}
+classifier = glm(Reached_on_Time ~. , family = binomial, data=training_set)
+prob_pred2 = predict(classifier, newdata = test_set[-18], type="response")
+prob_pred2 = round(prob_pred2,0)
+accuracy2 = accuracy(prob_pred2,test_scaled2[,18])
+```
+
+We obtained an accuracy of:
+```{r echo = FALSE}
+print(accuracy2)
+```
+
+Both accuracies are the same, this is probably due to the fact that this is classification problem and not a regression one.
+
+
+
+There we tried to make predictions based on what both random forest and log regression predicted. But the accuracy was not better... :(
+
+We can't compile this code due to the error we had on the random forest code.
+```{r}
+#pred_avg = (rf2_pred+prob_pred)/2
+#pred_avg_rounded = round(pred_avg, 0)
+#accuracy3 = accuracy(pred_avg_rounded,test_scaled2[,18])
+```
+
+## K NEAREST NEIGHBOURS
+
+### First shot:
+
+We decided to do a KNN but we didn't encode the qualitative features yet, so we decided to not use them and do a knn without them: (It is with this one that we first had an answer)
+
+```{r}
+#KNN
+#train$Warehouse_block  <- NULL
+#train$Mode_of_Shipment  <- NULL
+#train$Product_importance <- NULL
+#train$Gender <- NULL
+```
+
+
+### Better shot:
+
+
+```{r}
+knn <- knn(train=train[,-18], test=test[,-18], cl=train$Reached_on_Time, k=50)
+scores <- c()
+for(k in 1:300){
+  scores[[(length(scores) + 1)]] <- accuracy(knn(train=train_scaled[,-18], test=test_scaled2[,-18],cl=train_scaled$Reached_on_Time, k=k),test_scaled2[,18])
+}
+k <- c(1:300)
+```
+
+There is the graph of the accuracy of our prediction depending on k:
+```{r}
+plot(k,scores, type="l",lwd = 2, col = "#cd0050")
+```
+
+Best K:  
+```{r echo = FALSE}
+max = max(unlist(scores))
+index = match(max,scores)
+print(paste0("Our best prediction is reached for k = ",index , " and have a precision of ", round(max*100,2),"%"))
+```
+
+# Conclusion
+```{r echo = FALSE}
+knn <- read.csv("to_be_submitted.csv", sep=",")
+```
+
+Our best predictions : 
+```{r echo = FALSE}
+knn[,2]
+```
+
+To put it in a nutshell, the competition was very intense but we really enjoyed it. Our first objective was to be the first team to submit our predictions, and we succeeded in 21 minutes only! 
+
+After that, we took a lot of time to explore the dataset and improve our predictions. We submitted 13 prediction files, and struggled to have better accuracy, even while trying a lot of several algorithms. It is only at the very end that we skyrocketed to the podium and finished 2nd of the competition ! Our second goal was to finish first, better luck next time.
+
+
+There is a small graph of our score evolution versus time:
+
+![](https://vectaloss.github.io/images/submissions.png)
+
+We would like to thank our professor: Dr. Ghassany and we hope that this project illustrate the interest we had for this course.
+
